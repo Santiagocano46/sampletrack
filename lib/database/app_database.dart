@@ -10,6 +10,7 @@ import '../models/sample_event.dart' as model;
 
 part 'app_database.g.dart';
 
+@DataClassName('SampleEventRow')
 class SampleEvents extends Table {
   TextColumn get id => text()();
 

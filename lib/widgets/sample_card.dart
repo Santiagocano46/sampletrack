@@ -1,19 +1,35 @@
+
 import 'package:flutter/material.dart';
 
 import '../models/sample.dart';
+import '../models/sample_event.dart';
+import '../services/sample_logic.dart';
+import 'delay_indicator.dart';
 
 class SampleCard extends StatelessWidget {
   const SampleCard({
     super.key,
     required this.sample,
     required this.onTap,
+    this.events = const [],
+    this.currentTime,
   });
 
   final Sample sample;
   final VoidCallback onTap;
+  final List<SampleEvent> events;
+  final DateTime? currentTime;
 
   @override
   Widget build(BuildContext context) {
+    final currentState = SampleLogic.getCurrentState(events);
+
+    final isDelayed = SampleLogic.isDelayed(
+      events: events,
+      priority: sample.priority,
+      now: currentTime,
+    );
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -24,10 +40,12 @@ class SampleCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 24,
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                backgroundColor:
+                    Theme.of(context).colorScheme.primaryContainer,
                 child: Icon(
                   Icons.science_outlined,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  color: Theme.of(context)
+                      .colorScheme.onPrimaryContainer,
                 ),
               ),
               const SizedBox(width: 14),
@@ -37,7 +55,10 @@ class SampleCard extends StatelessWidget {
                   children: [
                     Text(
                       sample.id,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                     ),
@@ -46,7 +67,9 @@ class SampleCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       sample.origin,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall,
                     ),
                   ],
                 ),
@@ -57,7 +80,11 @@ class SampleCard extends StatelessWidget {
                 children: [
                   _PriorityChip(priority: sample.priority),
                   const SizedBox(height: 8),
-                  const _InitialStatusChip(),
+                  if (isDelayed) ...[
+                    const DelayIndicator(),
+                    const SizedBox(height: 8),
+                  ],
+                  _StatusChip(status: currentState),
                 ],
               ),
             ],
@@ -76,9 +103,14 @@ class _PriorityChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.secondaryContainer,
+        color: Theme.of(context)
+            .colorScheme
+            .secondaryContainer,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -86,34 +118,36 @@ class _PriorityChip extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: Theme.of(context).colorScheme.onSecondaryContainer,
+          color: Theme.of(context)
+              .colorScheme
+              .onSecondaryContainer,
         ),
       ),
     );
   }
 }
 
-class _InitialStatusChip extends StatelessWidget {
-  const _InitialStatusChip();
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.status});
+
+  final String status;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.circle, size: 7),
-          SizedBox(width: 5),
-          Text(
-            'Sin eventos',
-            style: TextStyle(fontSize: 12),
-          ),
-        ],
+      child: Text(
+        status,
+        style: const TextStyle(fontSize: 12),
       ),
     );
   }

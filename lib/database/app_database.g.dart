@@ -4,7 +4,7 @@ part of 'app_database.dart';
 
 // ignore_for_file: type=lint
 class $SampleEventsTable extends SampleEvents
-    with TableInfo<$SampleEventsTable, model.SampleEvent> {
+    with TableInfo<$SampleEventsTable, SampleEventRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -39,7 +39,7 @@ class $SampleEventsTable extends SampleEvents
   String get actualTableName => $name;
   static const String $name = 'sample_events';
   @override
-  VerificationContext validateIntegrity(Insertable<model.SampleEvent> instance,
+  VerificationContext validateIntegrity(Insertable<SampleEventRow> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
@@ -72,9 +72,9 @@ class $SampleEventsTable extends SampleEvents
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  model.SampleEvent map(Map<String, dynamic> data, {String? tablePrefix}) {
+  SampleEventRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return SampleEvent(
+    return SampleEventRow(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
       sampleId: attachedDatabase.typeMapping
@@ -92,12 +92,12 @@ class $SampleEventsTable extends SampleEvents
   }
 }
 
-class SampleEvent extends DataClass implements Insertable<model.SampleEvent> {
+class SampleEventRow extends DataClass implements Insertable<SampleEventRow> {
   final String id;
   final String sampleId;
   final String type;
   final DateTime createdAt;
-  const SampleEvent(
+  const SampleEventRow(
       {required this.id,
       required this.sampleId,
       required this.type,
@@ -121,10 +121,10 @@ class SampleEvent extends DataClass implements Insertable<model.SampleEvent> {
     );
   }
 
-  factory SampleEvent.fromJson(Map<String, dynamic> json,
+  factory SampleEventRow.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return SampleEvent(
+    return SampleEventRow(
       id: serializer.fromJson<String>(json['id']),
       sampleId: serializer.fromJson<String>(json['sampleId']),
       type: serializer.fromJson<String>(json['type']),
@@ -142,16 +142,16 @@ class SampleEvent extends DataClass implements Insertable<model.SampleEvent> {
     };
   }
 
-  SampleEvent copyWith(
+  SampleEventRow copyWith(
           {String? id, String? sampleId, String? type, DateTime? createdAt}) =>
-      SampleEvent(
+      SampleEventRow(
         id: id ?? this.id,
         sampleId: sampleId ?? this.sampleId,
         type: type ?? this.type,
         createdAt: createdAt ?? this.createdAt,
       );
-  SampleEvent copyWithCompanion(SampleEventsCompanion data) {
-    return SampleEvent(
+  SampleEventRow copyWithCompanion(SampleEventsCompanion data) {
+    return SampleEventRow(
       id: data.id.present ? data.id.value : this.id,
       sampleId: data.sampleId.present ? data.sampleId.value : this.sampleId,
       type: data.type.present ? data.type.value : this.type,
@@ -161,7 +161,7 @@ class SampleEvent extends DataClass implements Insertable<model.SampleEvent> {
 
   @override
   String toString() {
-    return (StringBuffer('SampleEvent(')
+    return (StringBuffer('SampleEventRow(')
           ..write('id: $id, ')
           ..write('sampleId: $sampleId, ')
           ..write('type: $type, ')
@@ -175,14 +175,14 @@ class SampleEvent extends DataClass implements Insertable<model.SampleEvent> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is SampleEvent &&
+      (other is SampleEventRow &&
           other.id == this.id &&
           other.sampleId == this.sampleId &&
           other.type == this.type &&
           other.createdAt == this.createdAt);
 }
 
-class SampleEventsCompanion extends UpdateCompanion<model.SampleEvent> {
+class SampleEventsCompanion extends UpdateCompanion<SampleEventRow> {
   final Value<String> id;
   final Value<String> sampleId;
   final Value<String> type;
@@ -205,7 +205,7 @@ class SampleEventsCompanion extends UpdateCompanion<model.SampleEvent> {
         sampleId = Value(sampleId),
         type = Value(type),
         createdAt = Value(createdAt);
-  static Insertable<model.SampleEvent> custom({
+  static Insertable<SampleEventRow> custom({
     Expression<String>? id,
     Expression<String>? sampleId,
     Expression<String>? type,
@@ -367,17 +367,17 @@ class $$SampleEventsTableAnnotationComposer
 class $$SampleEventsTableTableManager extends RootTableManager<
     _$AppDatabase,
     $SampleEventsTable,
-    model.SampleEvent,
+    SampleEventRow,
     $$SampleEventsTableFilterComposer,
     $$SampleEventsTableOrderingComposer,
     $$SampleEventsTableAnnotationComposer,
     $$SampleEventsTableCreateCompanionBuilder,
     $$SampleEventsTableUpdateCompanionBuilder,
     (
-      model.SampleEvent,
-      BaseReferences<_$AppDatabase, $SampleEventsTable, model.SampleEvent>
+      SampleEventRow,
+      BaseReferences<_$AppDatabase, $SampleEventsTable, SampleEventRow>
     ),
-    model.SampleEvent,
+    SampleEventRow,
     PrefetchHooks Function()> {
   $$SampleEventsTableTableManager(_$AppDatabase db, $SampleEventsTable table)
       : super(TableManagerState(
@@ -419,9 +419,9 @@ class $$SampleEventsTableTableManager extends RootTableManager<
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
-                    e.readTable<$SampleEventsTable, model.SampleEvent>(table),
+                    e.readTable<$SampleEventsTable, SampleEventRow>(table),
                     BaseReferences<_$AppDatabase, $SampleEventsTable,
-                        model.SampleEvent>(db, table, e)
+                        SampleEventRow>(db, table, e)
                   ))
               .toList(),
           prefetchHooksCallback: null,
@@ -431,17 +431,17 @@ class $$SampleEventsTableTableManager extends RootTableManager<
 typedef $$SampleEventsTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
     $SampleEventsTable,
-    model.SampleEvent,
+    SampleEventRow,
     $$SampleEventsTableFilterComposer,
     $$SampleEventsTableOrderingComposer,
     $$SampleEventsTableAnnotationComposer,
     $$SampleEventsTableCreateCompanionBuilder,
     $$SampleEventsTableUpdateCompanionBuilder,
     (
-      model.SampleEvent,
-      BaseReferences<_$AppDatabase, $SampleEventsTable, model.SampleEvent>
+      SampleEventRow,
+      BaseReferences<_$AppDatabase, $SampleEventsTable, SampleEventRow>
     ),
-    model.SampleEvent,
+    SampleEventRow,
     PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
