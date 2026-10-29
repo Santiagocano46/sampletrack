@@ -14,7 +14,7 @@ class SampleEventRemoteService {
       _firestore.collection('sample_events');
 
   Future<List<SampleEvent>> getEvents() async {
-    final snapshot = await _events.get();
+    final snapshot = await _events.get(const GetOptions(source: Source.server),);
 
     return snapshot.docs.map((doc) {
       final data = doc.data();

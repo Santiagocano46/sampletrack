@@ -1,96 +1,153 @@
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
-import '../data/sample_seed.dart';
 import '../models/sample.dart';
 import '../models/sample_event.dart';
-import '../widgets/sample_card.dart';
-import 'sample_detail_page.dart';
+import '../services/sample_logic.dart';
+import 'delay_indicator.dart';
 
-class SampleListPage extends StatefulWidget {
-  const SampleListPage({super.key});
+class SampleCard extends StatelessWidget {
+  const SampleCard({
+    super.key,
+    required this.sample,
+    required this.onTap,
+    this.events = const [],
+    this.currentTime,
+  });
 
-  @override
-  State<SampleListPage> createState() => _SampleListPageState();
-}
-
-class _SampleListPageState extends State<SampleListPage> {
-  final Map<String, List<SampleEvent>> eventsBySample = {};
-
-  Timer? delayTimer;
-  DateTime currentTime = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-
-    delayTimer = Timer.periodic(
-      const Duration(seconds: 15),
-      (_) {
-        if (!mounted) return;
-
-        setState(() {
-          currentTime = DateTime.now();
-        });
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    delayTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _openDetail(Sample sample) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SampleDetailPage(sample: sample),
-      ),
-    );
-
-    if (!mounted) return;
-
-    setState(() {
-      currentTime = DateTime.now();
-    });
-  }
+  final Sample sample;
+  final VoidCallback onTap;
+  final List<SampleEvent> events;
+  final DateTime? currentTime;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.biotech_outlined),
-            SizedBox(width: 10),
-            Text('SampleTrack'),
-          ],
+    final currentState = SampleLogic.getCurrentState(events);
+
+    final isDelayed = SampleLogic.isDelayed(
+      events: events,
+      priority: sample.priority,
+      now: currentTime,
+    );
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor:
+                    Theme.of(context).colorScheme.primaryContainer,
+                child: Icon(
+                  Icons.science_outlined,
+                  color: Theme.of(context)
+                      .colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      sample.id,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(sample.type),
+                    const SizedBox(height: 3),
+                    Text(
+                      sample.origin,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _PriorityChip(priority: sample.priority),
+                  const SizedBox(height: 8),
+                  if (isDelayed) ...[
+                    const DelayIndicator(),
+                    const SizedBox(height: 8),
+                  ],
+                  _StatusChip(status: currentState),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
-      body: SafeArea(
-        child: ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: sampleSeed.length,
-          separatorBuilder: (_, __) =>
-              const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final sample = sampleSeed[index];
+    );
+  }
+}
 
-            final events =
-                eventsBySample[sample.id] ?? <SampleEvent>[];
+class _PriorityChip extends StatelessWidget {
+  const _PriorityChip({required this.priority});
 
-            return SampleCard(
-              sample: sample,
-              events: events,
-              currentTime: currentTime,
-              onTap: () => _openDetail(sample),
-            );
-          },
+  final String priority;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context)
+            .colorScheme
+            .secondaryContainer,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        priority,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context)
+              .colorScheme
+              .onSecondaryContainer,
         ),
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        status,
+        style: const TextStyle(fontSize: 12),
       ),
     );
   }

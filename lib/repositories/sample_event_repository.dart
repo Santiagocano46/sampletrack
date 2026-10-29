@@ -1,7 +1,18 @@
 
-import '../database/app_database.dart' hide SampleEvent;
+import '../database/app_database.dart';
 import '../models/sample_event.dart';
 import '../services/sample_event_remote_service.dart';
+import '../services/sample_logic.dart';
+
+class EventLoadResult {
+  const EventLoadResult({
+    required this.events,
+    required this.isLocal,
+  });
+
+  final List<SampleEvent> events;
+  final bool isLocal;
+}
 
 class SampleEventRepository {
   SampleEventRepository({
@@ -13,80 +24,58 @@ class SampleEventRepository {
   final AppDatabase _database;
   final SampleEventRemoteService _remoteService;
 
-  static const List<String> _states = [
-    'RECEIVED',
-    'PREPARED',
-    'IN_ANALYSIS',
-    'VALIDATED',
-    'ARCHIVED',
-  ];
+  Future<EventLoadResult> loadEventsForSample(
+    String sampleId,
+  ) async {
+    try {
+      final remoteEvents = await _remoteService.getEvents();
+
+      await _database.saveEvents(remoteEvents);
+
+      final events = remoteEvents
+          .where((event) => event.sampleId == sampleId)
+          .toList();
+
+      return EventLoadResult(
+        events: SampleLogic.sortEvents(events),
+        isLocal: false,
+      );
+    } catch (_) {
+      final localEvents =
+          await _database.getEventsForSample(sampleId);
+
+      return EventLoadResult(
+        events: SampleLogic.sortEvents(localEvents),
+        isLocal: true,
+      );
+    }
+  }
 
   Future<List<SampleEvent>> getEventsForSample(
     String sampleId,
   ) async {
-    List<SampleEvent> remoteEvents;
-
-    try {
-      remoteEvents = await _remoteService.getEvents();
-    } catch (_) {
-      final localEvents = await _database.getEventsForSample(sampleId);
-      localEvents.sort(
-        (a, b) => a.createdAt.compareTo(b.createdAt),
-      );
-      return localEvents;
-    }
-
-    // Si la lectura remota funcionó, actualizar la copia local.
-    await _database.saveEvents(remoteEvents);
-
-    final events = remoteEvents
-        .where((event) => event.sampleId == sampleId)
-        .toList();
-
-    events.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-    return events;
+    final result = await loadEventsForSample(sampleId);
+    return result.events;
   }
 
   Future<void> registerEvent(SampleEvent event) async {
-    // Leer el historial remoto antes de validar el siguiente estado.
-    // Si falla la lectura, no confirmar el registro.
     final remoteEvents = await _remoteService.getEvents();
-
-    await _database.saveEvents(remoteEvents);
 
     final history = remoteEvents
         .where((item) => item.sampleId == event.sampleId)
-        .toList()
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        .toList();
 
-    final nextState = event.type.toUpperCase();
-
-    if (!_states.contains(nextState)) {
-      throw ArgumentError('Estado no válido: ${event.type}');
+    if (!SampleLogic.isValidTransition(
+      history,
+      event.type,
+    )) {
+      throw StateError(
+        'Transición inválida hacia ${event.type}.',
+      );
     }
 
-    if (history.isEmpty) {
-      if (nextState != 'RECEIVED') {
-        throw StateError(
-          'El primer estado debe ser RECEIVED.',
-        );
-      }
-    } else {
-      final currentState = history.last.type.toUpperCase();
-      final currentIndex = _states.indexOf(currentState);
-
-      if (currentIndex < 0 ||
-          currentIndex + 1 >= _states.length ||
-          _states[currentIndex + 1] != nextState) {
-        throw StateError(
-          'Transición no válida: $currentState → $nextState.',
-        );
-      }
-    }
-
-    // Orden obligatorio: primero remoto, después local.
     await _remoteService.saveEvent(event);
+
     await _database.saveEvent(event);
   }
 }

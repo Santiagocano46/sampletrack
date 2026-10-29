@@ -1,170 +1,263 @@
+
 import 'package:flutter/material.dart';
 
 import '../models/sample.dart';
+import '../models/sample_event.dart';
+import '../repositories/sample_event_repository.dart';
+import '../services/sample_logic.dart';
+import '../widgets/delay_indicator.dart';
 
-class SampleDetailPage extends StatelessWidget {
+class SampleDetailPage extends StatefulWidget {
   const SampleDetailPage({
     super.key,
     required this.sample,
+    required this.repository,
   });
 
   final Sample sample;
+  final SampleEventRepository repository;
 
-  void _showPendingMessage(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Funcionalidad a implementar durante el examen.'),
-      ),
-    );
+  @override
+  State<SampleDetailPage> createState() =>
+      _SampleDetailPageState();
+}
+
+class _SampleDetailPageState extends State<SampleDetailPage> {
+  List<SampleEvent> events = [];
+
+  bool loading = true;
+  bool saving = false;
+  bool isLocal = false;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    loadEvents();
+  }
+
+  Future<void> loadEvents() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+
+    try {
+      final result = await widget.repository
+          .loadEventsForSample(widget.sample.id);
+
+      if (!mounted) return;
+
+      setState(() {
+        events = SampleLogic.sortEvents(result.events);
+        isLocal = result.isLocal;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        error = 'No se pudo cargar el historial: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => loading = false);
+      }
+    }
+  }
+
+  Future<void> registerNextEvent() async {
+    if (saving || isLocal || loading) return;
+
+    final next = SampleLogic.getNextState(events);
+
+    if (next == null) return;
+
+    setState(() => saving = true);
+
+    try {
+      final event = SampleEvent(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        sampleId: widget.sample.id,
+        type: next,
+        createdAt: DateTime.now().toUtc(),
+      );
+
+      // Primero Firestore y después Drift.
+      // El repositorio valida la transición.
+      await widget.repository.registerEvent(event);
+
+      if (!mounted) return;
+
+      await loadEvents();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Evento registrado correctamente',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo registrar el evento: $e'),
+        ),
+      );
+
+      await loadEvents();
+    } finally {
+      if (mounted) {
+        setState(() => saving = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = SampleLogic.getCurrentState(events);
+    final next = SampleLogic.getNextState(events);
+
+    final delayed = SampleLogic.isDelayed(
+      events: events,
+      priority: widget.sample.priority,
+    );
+
     return Scaffold(
-      appBar: AppBar(title: Text(sample.id)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _SampleHeader(sample: sample),
-          const SizedBox(height: 24),
-          Text(
-            'Historial de procesamiento',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 14),
-          const _EmptyHistory(),
-          const SizedBox(height: 18),
-          FilledButton.icon(
-            onPressed: () => _showPendingMessage(context),
-            icon: const Icon(Icons.add),
-            label: const Text('Registrar primer evento'),
+      appBar: AppBar(
+        title: Text(widget.sample.id),
+        actions: [
+          IconButton(
+            onPressed: saving || loading ? null : loadEvents,
+            icon: const Icon(Icons.refresh),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SampleHeader extends StatelessWidget {
-  const _SampleHeader({required this.sample});
-
-  final Sample sample;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primaryContainer,
-                  child: Icon(
-                    Icons.science_outlined,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
+      body: loading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : error != null
+              ? Center(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        sample.id,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+                      Text(error!),
+                      TextButton(
+                        onPressed: loadEvents,
+                        child: const Text('Reintentar'),
                       ),
-                      const SizedBox(height: 6),
-                      const Chip(label: Text('Sin eventos')),
                     ],
                   ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.sample.id,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge,
+                            ),
+                            const SizedBox(height: 12),
+                            Text('Tipo: ${widget.sample.type}'),
+                            Text(
+                              'Origen: ${widget.sample.origin}',
+                            ),
+                            Text(
+                              'Prioridad: '
+                              '${widget.sample.priority}',
+                            ),
+                            const SizedBox(height: 12),
+                            Chip(label: Text(state)),
+                            if (delayed) ...[
+                              const SizedBox(height: 8),
+                              const DelayIndicator(),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    if (isLocal)
+                      const Card(
+                        color: Color(0xFFFFF3CD),
+                        child: Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Text(
+                            'Estás consultando datos '
+                            'guardados localmente en Drift.',
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(height: 24),
+
+                    Text(
+                      'Historial de procesamiento',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge,
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    if (events.isEmpty)
+                      const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(
+                            child: Text('Esta muestra no tiene eventos.',
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    ...events.map(
+                      (event) => Card(
+                        child: ListTile(
+                          leading: const Icon(
+                            Icons.history,
+                          ),
+                          title: Text(event.type),
+                          subtitle: Text(
+                            event.createdAt
+                                .toLocal()
+                                .toString(),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    FilledButton.icon(
+                      onPressed: saving ||
+                              isLocal ||
+                              next == null
+                          ? null
+                          : registerNextEvent,
+                      icon: const Icon(Icons.add),
+                      label: Text(
+                        saving
+                            ? 'Guardando...'
+                            : next == null
+                                ? 'Procesamiento finalizado'
+                                : 'Registrar $next',
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            const Divider(height: 28),
-            Wrap(
-              spacing: 24,
-              runSpacing: 16,
-              children: [
-                _InfoField(label: 'Tipo', value: sample.type),
-                _InfoField(label: 'Origen', value: sample.origin),
-                _InfoField(label: 'Prioridad', value: sample.priority),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoField extends StatelessWidget {
-  const _InfoField({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 150,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyHistory extends StatelessWidget {
-  const _EmptyHistory();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 34),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.timeline_outlined,
-            size: 48,
-            color: Theme.of(context).colorScheme.outline,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Esta muestra aun no tiene eventos de procesamiento.',
-            style: Theme.of(context).textTheme.bodyLarge,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
     );
   }
 }
